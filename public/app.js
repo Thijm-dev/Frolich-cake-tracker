@@ -575,7 +575,17 @@ setInterval(refresh, 60000); // pick up what colleagues have logged
 setInterval(renderBoard, 30000); // keep countdowns fresh
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => reg.update()).catch(() => {});
+  // When a new version takes over, reload once so the new screens and styles are used.
+  let reloaded = false;
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
+}
 
 // ---------- shared server setting ----------
 $('#serverForm').addEventListener('submit', async (e) => {

@@ -1,6 +1,6 @@
 // Minimal service worker: makes the app installable and loads the shell
 // if the Wi-Fi blips. Always tries the network first so nothing is stale.
-const CACHE = 'cake-tracker-v4';
+const CACHE = 'cake-tracker-v5';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'config.js', 'supabase.js', 'manifest.webmanifest', 'icons/icon.svg'];
 const SHELL_URLS = SHELL.map((p) => new URL(p, self.registration.scope).href);
 
@@ -13,7 +13,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || !SHELL_URLS.includes(e.request.url.split('?')[0])) return;
   e.respondWith(
-    fetch(e.request)
+    // no-cache: always check with GitHub Pages for a newer version, so updates show straight away
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return res; })
       .catch(() => caches.match(e.request))
   );
