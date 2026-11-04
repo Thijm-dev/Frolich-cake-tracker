@@ -83,8 +83,9 @@
           <button class="btn small" type="button" id="demoReset">Reset demo data</button>
           <button class="btn small ghost" type="button" id="demoClear">Clear everything</button>
         </div>
+        <button class="btn" type="button" id="logoutBtn" hidden>Log out this device</button>
       </div>
-      <div class="card">
+      <div class="card" id="pinCard">
         <h3>Staff PIN</h3>
         <p class="hint">If the cafe has set a PIN, it's remembered on this device.</p>
         <button class="btn" id="forgetPin" type="button">Forget PIN on this device</button>
@@ -157,6 +158,17 @@
     </form>
   </dialog>
 
+  <dialog id="loginDialog">
+    <form id="loginForm" method="dialog">
+      <h2>Staff login</h2>
+      <p class="hint">Ask the manager for the staff password. You only need to do this once on each phone.</p>
+      <input name="email" type="email" autocomplete="username" placeholder="Staff email" required />
+      <input name="password" type="password" autocomplete="current-password" placeholder="Password" required />
+      <p id="loginError" class="error" hidden></p>
+      <div class="actions"><button class="btn primary" type="submit">Log in</button></div>
+    </form>
+  </dialog>
+
   <dialog id="nameDialog">
     <form id="nameForm" method="dialog">
       <h2>Who's logging?</h2>
@@ -172,6 +184,8 @@
 
   <div id="toast" class="toast" hidden></div>
 
+  <script src="config.js"></script>
+  <script src="supabase.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

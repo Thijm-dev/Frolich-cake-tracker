@@ -26,13 +26,39 @@ Pre-packaged stock (sandwiches, beer, etc.) already has dates printed on it, so 
 - **Shared by all staff.** Everyone opens the same link on their phone or the till PC and sees the same list. It refreshes every minute and can be added to the home screen like an app.
 - **Optional staff PIN** so only staff can see or change it. Each person's name is saved with what they log or bin.
 
-## Demo: GitHub Pages
+## On GitHub Pages
 
-A live demo is at **https://thijm-dev.github.io/Frolich-cake-tracker/**. It's redeployed automatically on every push (see `.github/workflows/pages.yml`).
+The app lives at **https://thijm-dev.github.io/Frolich-cake-tracker/** and is redeployed automatically on every push (see `.github/workflows/pages.yml`).
 
-The demo opens with **sample cakes and fruit** (something to bin, something on its last day, a fruit crate not yet put out, plus some history), so you can see how it works straight away. Everything you do is **saved on that device only**: GitHub Pages only hosts files and can't run the server, so other staff won't see it. **Shelf lives → Reset demo data / Clear everything** starts over.
+- **Until Supabase is set up** (`public/config.js` is empty), it runs as a **demo**: sample cakes and fruit, saved on that device only.
+- **Once Supabase is set up**, the same link becomes the **real shared list**. Staff log in once per phone with the shared staff login, and changes show up on every phone straight away.
+- The demo is still available at **…/Frolich-cake-tracker/?demo**.
 
-To use it for real, run the shared server (below). Then on each phone open **Shelf lives → Shared server**, paste the server's address and tap **Connect**, and everyone shares one list.
+## Shared list with Supabase (free)
+
+[Supabase](https://supabase.com) is a free online database. The free plan is plenty for one cafe. Free projects pause after about a week with **no** use, and daily logging keeps it awake.
+
+1. **Create a project.** Sign up at supabase.com (you can sign in with GitHub). Click **New project**:
+   - **Name:** `frolich-cake-tracker`
+   - **Database password:** pick one and save it somewhere. The app doesn't need it.
+   - **Region:** closest to the cafe, e.g. *London*
+
+   Then wait a minute or two while it sets up.
+2. **Create the staff login.** Go to **Authentication → Users → Add user → Create new user**:
+   - Enter an email (e.g. the cafe's email) and a password that staff will type once on each phone.
+   - Tick **Auto Confirm User**.
+3. **Stop strangers signing up** (recommended). Go to **Authentication → Sign In / Providers** and turn **off** "Allow new users to sign up".
+4. **Create the database.** Go to **SQL Editor → New query**:
+   - Paste in everything from [`supabase/setup.sql`](supabase/setup.sql).
+   - Change `staff@example.com` on the **last lines** to the email from step 2, in lower case.
+   - Click **Run**. You should see *"Success. No rows returned"*.
+5. **Connect the app.** Open the **Connect** button (or **Project Settings → API Keys**) and copy:
+   - the **Project URL** (looks like `https://abcdefgh.supabase.co`)
+   - the **publishable** key (starts `sb_publishable_…`), or on older projects the **anon public** key
+
+   Put them in [`public/config.js`](public/config.js) together with the staff email, then push. GitHub Pages updates in about a minute.
+
+**Never** put the **secret / service_role key** or the **database password** in the app. The publishable key is designed to be public: the database rules from step 4 only let the staff login see or change anything.
 
 ## Running the shared server
 

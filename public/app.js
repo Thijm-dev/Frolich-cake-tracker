@@ -34,9 +34,10 @@ const store = {
 };
 
 // ---------- API ----------
-// Two modes:
-//  - 'server': talks to server.js (same site, or the URL saved under Settings → Shared server)
-//  - 'local' : no server (e.g. GitHub Pages) – everything is kept in this browser's storage
+// Three modes:
+//  - 'supabase': shared list in Supabase (when config.js is filled in) – supabase.js
+//  - 'server'  : talks to server.js (same site, or the URL saved under Settings → Shared server)
+//  - 'local'   : demo – everything is kept in this browser's storage
 let mode = null;
 
 function serverBase() {
@@ -45,6 +46,8 @@ function serverBase() {
 }
 
 async function detectMode() {
+  if (SupaBackend.enabled) return 'supabase';
+  if (SupaBackend.demoForced) return 'local';
   if (store.get('server')) return 'server';
   try {
     const r = await fetch('api/config', { headers: { 'X-Cafe-Pin': store.get('pin') } });
@@ -57,6 +60,15 @@ async function detectMode() {
 async function api(path, opts = {}) {
   if (!mode) mode = await detectMode();
   if (mode === 'local') return localApi(path, opts);
+  if (mode === 'supabase') {
+    try {
+      return await SupaBackend.api(path, opts);
+    } catch (e) {
+      if (e.message !== 'LOGIN_NEEDED') throw e;
+      askLogin();
+      throw new Error('PIN needed');
+    }
+  }
   const res = await fetch(serverBase() + path.replace(/^\//, ''), {
     ...opts,
     headers: { 'Content-Type': 'application/json', 'X-Cafe-Pin': store.get('pin'), ...(opts.headers || {}) },
@@ -135,6 +147,7 @@ function esc(s) {
 }
 function photoUrl(file) {
   if (file.startsWith('data:')) return file; // device-only mode keeps the photo inline
+  if (mode === 'supabase') return SupaBackend.photoUrl(file);
   const pin = store.get('pin');
   return `${serverBase()}photos/${encodeURIComponent(file)}${pin ? `?pin=${encodeURIComponent(pin)}` : ''}`;
 }
@@ -230,11 +243,15 @@ function renderPresets() {
 
 // ---------- data loading ----------
 async function loadActive() {
-  state.items = await api('/api/items?status=active');
+  const items = await api('/api/items?status=active');
+  if (mode === 'supabase') await SupaBackend.signPhotos(items);
+  state.items = items;
   renderBoard();
 }
 async function loadHistory() {
-  state.history = await api('/api/items?status=all');
+  const items = await api('/api/items?status=all');
+  if (mode === 'supabase') await SupaBackend.signPhotos(items);
+  state.history = items;
   renderHistory();
 }
 async function loadPresets() {
@@ -244,9 +261,14 @@ async function loadPresets() {
 function renderMode() {
   $('#localBanner').hidden = mode !== 'local';
   $('#demoActions').hidden = mode !== 'local';
-  $('#modeText').innerHTML = mode === 'local'
-    ? '<b>Demo / device only:</b> logs are saved on this device only. Once the tracker server is running somewhere (see the README), paste its address here so every phone shares one list.'
-    : `<b>Connected</b> to ${esc(store.get('server') || location.origin)} – everyone sees the same list.`;
+  $('#serverForm').hidden = mode === 'supabase';
+  $('#logoutBtn').hidden = mode !== 'supabase';
+  $('#pinCard').hidden = mode !== 'server';
+  $('#modeText').innerHTML = mode === 'supabase'
+    ? `<b>Connected</b> to the cafe's shared list – everyone sees the same thing, live.${SupaBackend.cfg.staffEmail ? ` Logged in as ${esc(SupaBackend.cfg.staffEmail)}.` : ''}`
+    : mode === 'local'
+      ? '<b>Demo / device only:</b> logs are saved on this device only. Once the tracker server is running somewhere (see the README), paste its address here so every phone shares one list.'
+      : `<b>Connected</b> to ${esc(store.get('server') || location.origin)} – everyone sees the same list.`;
   $('#serverForm').server.value = store.get('server');
 }
 
@@ -254,6 +276,8 @@ async function refresh() {
   try {
     if (!mode) mode = await detectMode();
     renderMode();
+    if (mode === 'supabase' && !(await SupaBackend.session())) return askLogin();
+    if (mode === 'supabase') startLive();
     await Promise.all([loadActive(), loadPresets()]);
     if (!$('#view-history').hidden) await loadHistory();
   } catch (e) {
@@ -727,3 +751,55 @@ $('#demoClear').addEventListener('click', () => {
   toast('Cleared');
   refresh();
 });
+
+// ---------- Supabase login (one shared staff login) ----------
+let loginOpen = false;
+function askLogin() {
+  if (loginOpen) return;
+  loginOpen = true;
+  const f = $('#loginForm');
+  if (!f.email.value) f.email.value = SupaBackend.cfg.staffEmail || '';
+  $('#loginError').hidden = true;
+  $('#loginDialog').showModal();
+  setTimeout(() => (f.email.value ? f.password : f.email).focus(), 50);
+}
+$('#loginDialog').addEventListener('cancel', (e) => e.preventDefault());
+$('#loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const btn = f.querySelector('button[type=submit]');
+  btn.disabled = true;
+  try {
+    await SupaBackend.signIn(f.email.value, f.password.value);
+    loginOpen = false;
+    f.password.value = '';
+    $('#loginDialog').close();
+    toast('Logged in');
+    refresh();
+  } catch (err) {
+    $('#loginError').textContent = err.message;
+    $('#loginError').hidden = false;
+  } finally {
+    btn.disabled = false;
+  }
+});
+$('#logoutBtn').addEventListener('click', async () => {
+  if (!confirm('Log this device out? You will need the staff password to log back in.')) return;
+  await SupaBackend.signOut();
+  state.items = [];
+  state.history = [];
+  renderBoard();
+  askLogin();
+});
+
+// Live updates: when anyone logs or bins something, every open phone refreshes.
+let live = false;
+let liveTimer;
+function startLive() {
+  if (live) return;
+  live = true;
+  SupaBackend.onChange(() => {
+    clearTimeout(liveTimer);
+    liveTimer = setTimeout(refresh, 400);
+  }).catch(() => { live = false; });
+}
