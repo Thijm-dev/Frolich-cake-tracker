@@ -26,11 +26,13 @@ Pre-packaged stock (sandwiches, beer, etc.) already has dates printed on it, so 
 - **Shared by all staff.** Everyone opens the same link on their phone or the till PC and sees the same list. It refreshes every minute and can be added to the home screen like an app.
 - **Optional staff PIN** so only staff can see or change it. Each person's name is saved with what they log or bin.
 
-## Try it now: GitHub Pages
+## Demo: GitHub Pages
 
-The app is published at **https://thijm-dev.github.io/Frolich-cake-tracker/**. It's redeployed automatically on every push (see `.github/workflows/pages.yml`).
+A live demo is at **https://thijm-dev.github.io/Frolich-cake-tracker/**. It's redeployed automatically on every push (see `.github/workflows/pages.yml`).
 
-> ⚠️ **GitHub Pages only hosts files and can't run the server**, so in this mode each phone keeps its **own** list in its browser. Other staff won't see your logs, and clearing the browser's data wipes it. That's fine for trying it out. For the real thing, run the server (below) somewhere, then on each phone go to **Shelf lives → Shared server**, paste its address and tap **Connect**. Everyone then shares one list, and the Pages link keeps working as the front end.
+The demo opens with **sample cakes and fruit** (something to bin, something on its last day, a fruit crate not yet put out, plus some history), so you can see how it works straight away. Everything you do is **saved on that device only**: GitHub Pages only hosts files and can't run the server, so other staff won't see it. **Shelf lives → Reset demo data / Clear everything** starts over.
+
+To use it for real, run the shared server (below). Then on each phone open **Shelf lives → Shared server**, paste the server's address and tap **Connect**, and everyone shares one list.
 
 ## Running the shared server
 

@@ -243,8 +243,9 @@ async function loadPresets() {
 }
 function renderMode() {
   $('#localBanner').hidden = mode !== 'local';
+  $('#demoActions').hidden = mode !== 'local';
   $('#modeText').innerHTML = mode === 'local'
-    ? '<b>Not connected:</b> logs are saved on this device only. Once the tracker server is running somewhere (see the README), paste its address here so every phone shares one list.'
+    ? '<b>Demo / device only:</b> logs are saved on this device only. Once the tracker server is running somewhere (see the README), paste its address here so every phone shares one list.'
     : `<b>Connected</b> to ${esc(store.get('server') || location.origin)} – everyone sees the same list.`;
   $('#serverForm').server.value = store.get('server');
 }
@@ -593,9 +594,34 @@ const newId = () => Math.random().toString(16).slice(2, 10) + Date.now().toStrin
 function localLoad() {
   let db = null;
   try { db = JSON.parse(store.get('localdb') || 'null'); } catch { /* corrupt or blocked */ }
-  if (!db) db = { items: [], presets: DEFAULT_PRESETS.map(([name, category, days]) => ({ id: newId(), name, category, days })) };
+  if (!db) {
+    db = demoData();
+    try { localStorage.setItem('localdb', JSON.stringify(db)); } catch { /* storage blocked: demo still shows */ }
+  }
   return db;
 }
+// Sample data so the demo isn't empty. Times are relative to now so it always looks current.
+function demoData() {
+  const presets = DEFAULT_PRESETS.map(([name, category, days]) => ({ id: newId(), name, category, days }));
+  const at = (dayOffset, h, m = 0) => { const d = new Date(); d.setDate(d.getDate() + dayOffset); d.setHours(h, m, 0, 0); return d.toISOString(); };
+  const bin = (start, days) => computeExpiry(new Date(start), days).toISOString();
+  const item = (o) => ({ id: newId(), deliveredAt: null, openedAt: null, notes: '', photo: null, status: 'active',
+    createdAt: o.openedAt || o.deliveredAt, closedAt: null, closedBy: '', ...o });
+  const items = [
+    item({ name: 'Lemon drizzle', category: 'cake', openedAt: at(-3, 8, 15), expiresAt: bin(at(-3, 8, 15), 3), loggedBy: 'Sam', notes: 'Cake stand, left' }),
+    item({ name: 'Carrot cake', category: 'cake', openedAt: at(-2, 9, 0), expiresAt: bin(at(-2, 9, 0), 3), loggedBy: 'Jo' }),
+    item({ name: 'Berries', category: 'fruit', deliveredAt: at(0, 7, 40), openedAt: at(0, 8, 5), expiresAt: bin(at(0, 7, 40), 1), loggedBy: 'Alex', notes: 'Breakfast bar' }),
+    item({ name: 'Brownies', category: 'cake', openedAt: at(0, 8, 30), expiresAt: bin(at(0, 8, 30), 4), loggedBy: 'Sam' }),
+    item({ name: 'Victoria sponge', category: 'cake', openedAt: at(-1, 11, 20), expiresAt: bin(at(-1, 11, 20), 3), loggedBy: 'Jo', notes: 'Top shelf of the cake stand' }),
+    item({ name: 'Bananas', category: 'fruit', deliveredAt: at(-1, 7, 30), openedAt: at(-1, 8, 0), expiresAt: bin(at(-1, 7, 30), 5), loggedBy: 'Alex' }),
+    item({ name: 'Apples', category: 'fruit', deliveredAt: at(0, 7, 30), expiresAt: bin(at(0, 7, 30), 7), loggedBy: 'Alex', notes: 'Still in the crate in the back' }),
+    item({ name: 'Cheesecake', category: 'cake', openedAt: at(-3, 9, 0), expiresAt: bin(at(-3, 9, 0), 2), loggedBy: 'Sam', status: 'binned', closedAt: at(-2, 17, 0), closedBy: 'Jo' }),
+    item({ name: 'Chocolate cake', category: 'cake', openedAt: at(-2, 8, 0), expiresAt: bin(at(-2, 8, 0), 3), loggedBy: 'Jo', status: 'used', closedAt: at(-1, 15, 30), closedBy: 'Sam' }),
+    item({ name: 'Oranges', category: 'fruit', deliveredAt: at(-5, 7, 30), openedAt: at(-5, 8, 0), expiresAt: bin(at(-5, 7, 30), 7), loggedBy: 'Alex', status: 'used', closedAt: at(-1, 12, 0), closedBy: 'Alex' }),
+  ];
+  return { items, presets, demo: true };
+}
+
 function localSave(db) {
   try {
     localStorage.setItem('localdb', JSON.stringify(db));
@@ -686,3 +712,18 @@ async function localApi(path, opts = {}) {
   if (kind === 'config') return { ok: true };
   throw new Error('Not found');
 }
+
+$('#demoReset').addEventListener('click', () => {
+  if (!confirm('Replace everything on this device with fresh demo data?')) return;
+  localSave(demoData());
+  toast('Demo data reset');
+  refresh();
+});
+$('#demoClear').addEventListener('click', () => {
+  if (!confirm('Clear all items on this device? Shelf lives are kept.')) return;
+  const db = localLoad();
+  db.items = [];
+  localSave(db);
+  toast('Cleared');
+  refresh();
+});
