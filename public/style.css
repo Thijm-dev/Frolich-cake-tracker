@@ -117,19 +117,19 @@ h2.group.ok { color: var(--green); }
 
 dialog { border: 0; border-radius: 16px; padding: 0; width: min(520px, calc(100vw - 32px)); background: var(--surface); color: var(--text); }
 dialog::backdrop { background: rgba(0,0,0,.45); }
-dialog form { padding: 18px; display: grid; gap: 12px; max-height: 90vh; overflow: auto; }
+dialog form { padding: 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; max-height: 90vh; overflow-y: auto; overflow-x: hidden; }
+dialog form > *, .field, .grid2 > * { min-width: 0; }
 dialog h2 { margin: 0; font-size: 1.2rem; }
 .field { display: grid; gap: 4px; font-weight: 600; font-size: .9rem; }
 .field .hint { margin: 0; font-weight: 400; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-@media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .dt { display: flex; gap: 6px; }
-.dt input { min-width: 0; }
+.dt input { min-width: 0; flex: 1; }
 .mini { border: 1px solid var(--border); background: var(--bg); border-radius: 8px; padding: 0 10px; cursor: pointer; font-size: .85rem; }
 .seg { display: flex; gap: 6px; }
-.seg label { flex: 1; }
-.seg input { position: absolute; opacity: 0; pointer-events: none; }
-.seg span { display: block; text-align: center; padding: 10px 6px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 600; }
+.seg label { flex: 1; min-width: 0; position: relative; }
+.seg input { position: absolute; inset: 0; width: 1px !important; height: 1px; padding: 0; margin: 0; opacity: 0; pointer-events: none; }
+.seg span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; padding: 10px 6px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 600; }
 .seg input:checked + span { background: var(--brand); color: var(--brand-text); border-color: var(--brand); }
 .seg input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
 .photo-preview { max-width: 100%; max-height: 200px; border-radius: 10px; margin-top: 6px; object-fit: contain; }
