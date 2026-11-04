@@ -34,8 +34,30 @@ const store = {
 };
 
 // ---------- API ----------
+// Two modes:
+//  - 'server': talks to server.js (same site, or the URL saved under Settings → Shared server)
+//  - 'local' : no server (e.g. GitHub Pages) – everything is kept in this browser's storage
+let mode = null;
+
+function serverBase() {
+  const s = store.get('server');
+  return s ? s.replace(/\/+$/, '') + '/' : '';
+}
+
+async function detectMode() {
+  if (store.get('server')) return 'server';
+  try {
+    const r = await fetch('api/config', { headers: { 'X-Cafe-Pin': store.get('pin') } });
+    if (r.status === 401) return 'server';
+    if (r.ok && (r.headers.get('content-type') || '').includes('json')) return 'server';
+  } catch { /* no server here */ }
+  return 'local';
+}
+
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
+  if (!mode) mode = await detectMode();
+  if (mode === 'local') return localApi(path, opts);
+  const res = await fetch(serverBase() + path.replace(/^\//, ''), {
     ...opts,
     headers: { 'Content-Type': 'application/json', 'X-Cafe-Pin': store.get('pin'), ...(opts.headers || {}) },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -112,8 +134,9 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function photoUrl(file) {
+  if (file.startsWith('data:')) return file; // device-only mode keeps the photo inline
   const pin = store.get('pin');
-  return `/photos/${encodeURIComponent(file)}${pin ? `?pin=${encodeURIComponent(pin)}` : ''}`;
+  return `${serverBase()}photos/${encodeURIComponent(file)}${pin ? `?pin=${encodeURIComponent(pin)}` : ''}`;
 }
 
 // ---------- rendering ----------
@@ -218,8 +241,18 @@ async function loadPresets() {
   state.presets = await api('/api/presets');
   renderPresets();
 }
+function renderMode() {
+  $('#localBanner').hidden = mode !== 'local';
+  $('#modeText').innerHTML = mode === 'local'
+    ? '<b>Not connected:</b> logs are saved on this device only. Once the tracker server is running somewhere (see the README), paste its address here so every phone shares one list.'
+    : `<b>Connected</b> to ${esc(store.get('server') || location.origin)} – everyone sees the same list.`;
+  $('#serverForm').server.value = store.get('server');
+}
+
 async function refresh() {
   try {
+    if (!mode) mode = await detectMode();
+    renderMode();
     await Promise.all([loadActive(), loadPresets()]);
     if (!$('#view-history').hidden) await loadHistory();
   } catch (e) {
@@ -312,7 +345,8 @@ form.photoFile.addEventListener('change', async () => {
   const file = form.photoFile.files[0];
   if (!file) return;
   try {
-    state.photoData = await resizeImage(file, 1024, 0.75);
+    // Smaller photos when they're kept in the browser's limited storage
+    state.photoData = mode === 'local' ? await resizeImage(file, 640, 0.6) : await resizeImage(file, 1024, 0.75);
     const prev = $('#photoPreview');
     prev.src = state.photoData;
     prev.hidden = false;
@@ -467,7 +501,7 @@ function askPin() {
 $('#pinForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   store.set('pin', e.target.pin.value);
-  const res = await fetch('/api/config', { headers: { 'X-Cafe-Pin': e.target.pin.value } });
+  const res = await fetch(serverBase() + 'api/config', { headers: { 'X-Cafe-Pin': e.target.pin.value } });
   if (res.ok) {
     pinOpen = false;
     $('#pinError').hidden = true;
@@ -516,4 +550,139 @@ setInterval(refresh, 60000); // pick up what colleagues have logged
 setInterval(renderBoard, 30000); // keep countdowns fresh
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// ---------- shared server setting ----------
+$('#serverForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url = e.target.server.value.trim().replace(/\/+$/, '');
+  if (!url) return;
+  try {
+    const r = await fetch(url + '/api/config', { headers: { 'X-Cafe-Pin': store.get('pin') } });
+    if (!r.ok && r.status !== 401) throw new Error();
+  } catch {
+    return toast("Couldn't reach that server – check the address");
+  }
+  store.set('server', url);
+  mode = 'server';
+  toast('Connected to shared server');
+  refresh();
+});
+$('#serverClear').addEventListener('click', () => {
+  store.del('server');
+  mode = null;
+  toast('Using this device only');
+  refresh();
+});
+document.addEventListener('click', (e) => {
+  const g = e.target.closest('[data-goto]');
+  if (!g) return;
+  e.preventDefault();
+  $(`.tab[data-view="${g.dataset.goto}"]`).click();
+});
+
+// ---------- device-only storage (used when there's no server, e.g. GitHub Pages) ----------
+const DEFAULT_PRESETS = [
+  ['Victoria sponge', 'cake', 3], ['Carrot cake', 'cake', 3], ['Chocolate cake', 'cake', 3],
+  ['Lemon drizzle', 'cake', 3], ['Brownies', 'cake', 4], ['Cheesecake', 'cake', 2],
+  ['Bananas', 'fruit', 5], ['Apples', 'fruit', 7], ['Oranges', 'fruit', 7], ['Berries', 'fruit', 2],
+  ['Cut fruit / fruit pot', 'fruit', 1], ['Lemons & limes (cut)', 'fruit', 2],
+];
+const newId = () => Math.random().toString(16).slice(2, 10) + Date.now().toString(16);
+
+function localLoad() {
+  let db = null;
+  try { db = JSON.parse(store.get('localdb') || 'null'); } catch { /* corrupt or blocked */ }
+  if (!db) db = { items: [], presets: DEFAULT_PRESETS.map(([name, category, days]) => ({ id: newId(), name, category, days })) };
+  return db;
+}
+function localSave(db) {
+  try {
+    localStorage.setItem('localdb', JSON.stringify(db));
+  } catch {
+    throw new Error('This phone\'s storage is full – delete some old history or photos.');
+  }
+}
+function localValidate(input, existing = {}) {
+  const pick = (k) => (input[k] !== undefined ? input[k] : existing[k]);
+  const name = String(pick('name') || '').trim().slice(0, 80);
+  if (!name) throw new Error('Name is required');
+  const out = {
+    name,
+    category: ['cake', 'fruit', 'other'].includes(pick('category')) ? pick('category') : 'other',
+    deliveredAt: pick('deliveredAt') || null,
+    openedAt: pick('openedAt') || null,
+    expiresAt: pick('expiresAt') || null,
+    notes: String(pick('notes') || '').slice(0, 500),
+    loggedBy: String(pick('loggedBy') || '').slice(0, 40),
+  };
+  if (!out.deliveredAt && !out.openedAt) throw new Error('Enter when it was delivered or when it was put out / opened');
+  if (!out.expiresAt) throw new Error('Throw-away date is required');
+  return out;
+}
+function localPreset(b) {
+  const name = String(b.name || '').trim().slice(0, 80);
+  const days = Number(b.days);
+  if (!name) throw new Error('Preset name is required');
+  if (!Number.isInteger(days) || days < 1 || days > 60) throw new Error('Shelf life must be 1–60 days');
+  return { name, category: ['cake', 'fruit', 'other'].includes(b.category) ? b.category : 'other', days };
+}
+
+async function localApi(path, opts = {}) {
+  const url = new URL(path, 'http://local');
+  const [, kind, id] = url.pathname.split('/').filter(Boolean);
+  const method = opts.method || 'GET';
+  const body = opts.body || {};
+  const db = localLoad();
+  const now = new Date().toISOString();
+
+  if (kind === 'items') {
+    if (!id && method === 'GET') {
+      const status = url.searchParams.get('status') || 'active';
+      return status === 'all' ? db.items : db.items.filter((i) => i.status === status);
+    }
+    if (!id && method === 'POST') {
+      const item = { id: newId(), ...localValidate(body), photo: body.photo || null, status: 'active', createdAt: now, closedAt: null, closedBy: '' };
+      db.items.push(item);
+      localSave(db);
+      return item;
+    }
+    const item = db.items.find((i) => i.id === id);
+    if (!item) throw new Error('Item not found');
+    if (method === 'PATCH') {
+      if (body.status !== undefined) {
+        item.status = body.status;
+        item.closedAt = body.status === 'active' ? null : now;
+        item.closedBy = body.status === 'active' ? '' : String(body.by || '');
+      }
+      const editable = ['name', 'category', 'deliveredAt', 'openedAt', 'expiresAt', 'notes', 'loggedBy'];
+      if (editable.some((k) => body[k] !== undefined)) Object.assign(item, localValidate(body, item));
+      if (body.photo !== undefined) item.photo = body.photo || null;
+      item.updatedAt = now;
+      localSave(db);
+      return item;
+    }
+    if (method === 'DELETE') {
+      db.items = db.items.filter((i) => i.id !== id);
+      localSave(db);
+      return null;
+    }
+  }
+  if (kind === 'presets') {
+    if (!id && method === 'GET') return db.presets;
+    if (!id && method === 'POST') {
+      const preset = { id: newId(), ...localPreset(body) };
+      db.presets.push(preset);
+      localSave(db);
+      return preset;
+    }
+    const idx = db.presets.findIndex((p) => p.id === id);
+    if (idx === -1) throw new Error('Preset not found');
+    if (method === 'PUT') db.presets[idx] = { id, ...localPreset(body) };
+    if (method === 'DELETE') db.presets.splice(idx, 1);
+    localSave(db);
+    return method === 'PUT' ? db.presets[idx] : null;
+  }
+  if (kind === 'config') return { ok: true };
+  throw new Error('Not found');
+}

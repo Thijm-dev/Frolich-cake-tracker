@@ -209,7 +209,14 @@ function createApp(options = {}) {
   async function handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
     try {
-      if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
+      if (url.pathname.startsWith('/api/')) {
+        // Allow the app hosted elsewhere (e.g. GitHub Pages) to use this server. The PIN still protects it.
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Cafe-Pin');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        if (req.method === 'OPTIONS') return send(res, 204);
+        return await handleApi(req, res, url);
+      }
 
       if (url.pathname.startsWith('/photos/')) {
         // Photos are only viewable with the PIN (sent as ?pin= because <img> can't send headers)

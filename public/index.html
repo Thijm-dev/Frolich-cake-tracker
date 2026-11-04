@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Cake &amp; Fruit Tracker</title>
   <meta name="theme-color" content="#7a4b2a" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/icons/icon.svg" />
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon.svg" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="topbar">
@@ -33,6 +33,10 @@
           <button class="chip" data-cat="fruit">Fruit</button>
           <button class="chip" data-cat="other">Other</button>
         </div>
+      </div>
+      <div id="localBanner" class="banner" hidden>
+        📱 <b>Saved on this device only.</b> Other staff won't see what you log here until a shared server is connected
+        (<a href="#" data-goto="settings">Shelf lives → Shared server</a>).
       </div>
       <div id="summary" class="summary"></div>
       <div id="board"></div>
@@ -66,6 +70,15 @@
       <div class="card">
         <h3>Day dot colours</h3>
         <div id="dotLegend" class="dot-legend"></div>
+      </div>
+      <div class="card">
+        <h3>Shared server</h3>
+        <p class="hint" id="modeText"></p>
+        <form id="serverForm" class="row server-row">
+          <input name="server" type="url" placeholder="https://your-cake-tracker.example.com" />
+          <button class="btn primary" type="submit">Connect</button>
+          <button class="btn" type="button" id="serverClear">Use this device only</button>
+        </form>
       </div>
       <div class="card">
         <h3>Staff PIN</h3>
@@ -155,6 +168,6 @@
 
   <div id="toast" class="toast" hidden></div>
 
-  <script src="/app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
