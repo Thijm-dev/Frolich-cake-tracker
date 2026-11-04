@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Cake &amp; Fruit Tracker</title>
+  <meta name="theme-color" content="#7a4b2a" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icons/icon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>🍰 Cake &amp; Fruit Tracker</h1>
+    <button id="whoBtn" class="who" type="button" title="Change your name"></button>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-view="board" role="tab">Out now</button>
+    <button class="tab" data-view="history" role="tab">History</button>
+    <button class="tab" data-view="settings" role="tab">Shelf lives</button>
+  </nav>
+
+  <main>
+    <!-- BOARD -->
+    <section id="view-board" class="view">
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Is it still in date? Search e.g. carrot…" autocomplete="off" />
+        <div class="filters" id="catFilters">
+          <button class="chip active" data-cat="all">All</button>
+          <button class="chip" data-cat="cake">Cakes</button>
+          <button class="chip" data-cat="fruit">Fruit</button>
+          <button class="chip" data-cat="other">Other</button>
+        </div>
+      </div>
+      <div id="summary" class="summary"></div>
+      <div id="board"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="view-history" class="view" hidden>
+      <p class="hint">Everything that has been binned or used up, newest first. Handy for spotting waste.</p>
+      <div id="wasteStats" class="summary"></div>
+      <div id="history"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view" hidden>
+      <p class="hint">How many days each item lasts once it's opened / put out (or delivered, for fruit).
+        <strong>The day it's opened counts as day 1</strong> – so a 3-day cake opened on Monday gets binned at close on Wednesday.</p>
+      <div id="presets"></div>
+      <form id="presetForm" class="card preset-form">
+        <h3>Add an item</h3>
+        <div class="row">
+          <input name="name" placeholder="e.g. Coffee & walnut" required maxlength="80" />
+          <select name="category">
+            <option value="cake">Cake</option>
+            <option value="fruit">Fruit</option>
+            <option value="other">Other</option>
+          </select>
+          <input name="days" type="number" min="1" max="60" value="3" required aria-label="Days" />
+          <button class="btn primary" type="submit">Add</button>
+        </div>
+      </form>
+      <div class="card">
+        <h3>Day dot colours</h3>
+        <div id="dotLegend" class="dot-legend"></div>
+      </div>
+      <div class="card">
+        <h3>Staff PIN</h3>
+        <p class="hint">If the cafe has set a PIN, it's remembered on this device.</p>
+        <button class="btn" id="forgetPin" type="button">Forget PIN on this device</button>
+      </div>
+    </section>
+  </main>
+
+  <button id="addBtn" class="fab" type="button" aria-label="Log something">＋ Log</button>
+
+  <!-- ADD / EDIT SHEET -->
+  <dialog id="itemDialog">
+    <form id="itemForm" method="dialog">
+      <h2 id="itemFormTitle">Log cake / fruit</h2>
+
+      <div class="seg" id="catSeg">
+        <label><input type="radio" name="category" value="cake" checked /><span>🍰 Cake</span></label>
+        <label><input type="radio" name="category" value="fruit" /><span>🍌 Fruit</span></label>
+        <label><input type="radio" name="category" value="other" /><span>📦 Other</span></label>
+      </div>
+
+      <label class="field">What is it?
+        <input name="name" list="presetList" required maxlength="80" placeholder="Pick or type…" autocomplete="off" />
+        <datalist id="presetList"></datalist>
+      </label>
+
+      <div class="grid2">
+        <label class="field" id="deliveredField">Delivered
+          <div class="dt"><input type="datetime-local" name="deliveredAt" /><button type="button" class="mini" data-now="deliveredAt">Now</button></div>
+        </label>
+        <label class="field">Put out / opened
+          <div class="dt"><input type="datetime-local" name="openedAt" /><button type="button" class="mini" data-now="openedAt">Now</button></div>
+        </label>
+      </div>
+
+      <label class="field">Shelf life (days, day 1 = the day it starts)
+        <input type="number" name="days" min="1" max="60" value="3" />
+      </label>
+
+      <label class="field">Throw away at
+        <input type="datetime-local" name="expiresAt" required />
+        <small id="expiryHint" class="hint"></small>
+      </label>
+
+      <label class="field">Photo (optional)
+        <input type="file" name="photoFile" accept="image/*" capture="environment" />
+        <img id="photoPreview" class="photo-preview" alt="" hidden />
+      </label>
+
+      <label class="field">Notes
+        <input name="notes" maxlength="500" placeholder="e.g. top shelf of the cake stand" />
+      </label>
+
+      <p id="formError" class="error" hidden></p>
+
+      <div class="actions">
+        <button type="button" class="btn" id="cancelItem">Cancel</button>
+        <button type="submit" class="btn primary" id="saveItem">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- PIN / NAME -->
+  <dialog id="pinDialog">
+    <form id="pinForm" method="dialog">
+      <h2>Staff PIN</h2>
+      <p class="hint">Ask the manager for the cafe PIN.</p>
+      <input name="pin" type="password" inputmode="numeric" autocomplete="current-password" required />
+      <p id="pinError" class="error" hidden>That PIN didn't work.</p>
+      <div class="actions"><button class="btn primary" type="submit">Unlock</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="nameDialog">
+    <form id="nameForm" method="dialog">
+      <h2>Who's logging?</h2>
+      <p class="hint">Your first name is saved with what you log, so others know who to ask.</p>
+      <input name="name" maxlength="40" required placeholder="e.g. Sam" />
+      <div class="actions"><button class="btn primary" type="submit">Save</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="photoDialog" class="photo-dialog">
+    <form method="dialog"><img id="photoBig" alt="" /><button class="btn">Close</button></form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

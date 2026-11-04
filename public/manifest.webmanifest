@@ -1,0 +1,11 @@
+{
+  "name": "Cake & Fruit Tracker",
+  "short_name": "Cake Tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf6f1",
+  "theme_color": "#7a4b2a",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
