@@ -12,6 +12,7 @@ create table if not exists public.items (
   category     text not null default 'other' check (category in ('cake', 'fruit', 'other')),
   delivered_at timestamptz,
   opened_at    timestamptz,
+  defrosted_at timestamptz,
   expires_at   timestamptz not null,
   notes        text not null default '' check (char_length(notes) <= 500),
   logged_by    text not null default '' check (char_length(logged_by) <= 40),
@@ -21,8 +22,13 @@ create table if not exists public.items (
   updated_at   timestamptz,
   closed_at    timestamptz,
   closed_by    text not null default '' check (char_length(closed_by) <= 40),
-  constraint items_has_start check (delivered_at is not null or opened_at is not null)
+  constraint items_has_start check (delivered_at is not null or opened_at is not null or defrosted_at is not null)
 );
+-- Projects set up before the defrost date existed get the column here too.
+alter table public.items add column if not exists defrosted_at timestamptz;
+alter table public.items drop constraint if exists items_has_start;
+alter table public.items add constraint items_has_start
+  check (delivered_at is not null or opened_at is not null or defrosted_at is not null);
 create index if not exists items_status_expires on public.items (status, expires_at);
 create index if not exists items_closed_at on public.items (closed_at desc);
 

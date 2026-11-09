@@ -157,6 +157,7 @@ function itemCard(item, { history = false } = {}) {
   const st = history ? item.status : statusOf(item);
   const lines = [];
   if (item.deliveredAt) lines.push(`<div>${dot(item.deliveredAt, 'Delivered')} <span>Delivered ${fmtDay(item.deliveredAt)}</span></div>`);
+  if (item.defrostedAt) lines.push(`<div>${dot(item.defrostedAt, 'Defrosted')} <span>❄️ Defrosted ${fmtDay(item.defrostedAt)}</span></div>`);
   if (item.openedAt) lines.push(`<div>${dot(item.openedAt, 'Out')} <span>Put out ${fmtDay(item.openedAt)}</span></div>`);
   lines.push(`<div>${dot(item.expiresAt, 'Bin')} <strong>Bin ${fmtDay(item.expiresAt)}</strong></div>`);
 
@@ -302,6 +303,7 @@ function openItemForm(item) {
   if (item) {
     form.deliveredAt.value = toLocalInput(item.deliveredAt);
     form.openedAt.value = toLocalInput(item.openedAt);
+    form.defrostedAt.value = toLocalInput(item.defrostedAt);
     form.expiresAt.value = toLocalInput(item.expiresAt);
   } else {
     applyCategoryDefaults(cat);
@@ -318,14 +320,16 @@ function applyCategoryDefaults(cat) {
   // Fruit: log the delivery now, "put out" later. Cakes: opened now.
   form.deliveredAt.value = cat === 'fruit' ? now : '';
   form.openedAt.value = cat === 'fruit' ? '' : now;
+  form.defrostedAt.value = '';
   form.days.value = cat === 'fruit' ? 5 : 3;
   updateExpiry();
 }
 
 function updateExpiry() {
-  const startVal = form.category.value === 'fruit'
+  // Defrosting restarts the clock, so a defrost time always wins.
+  const startVal = form.defrostedAt.value || (form.category.value === 'fruit'
     ? form.deliveredAt.value || form.openedAt.value
-    : form.openedAt.value || form.deliveredAt.value;
+    : form.openedAt.value || form.deliveredAt.value);
   const days = Number(form.days.value) || 1;
   if (startVal && !state.expiryTouched) form.expiresAt.value = toLocalInput(computeExpiry(new Date(startVal), days));
   const exp = form.expiresAt.value ? new Date(form.expiresAt.value) : null;
@@ -347,7 +351,7 @@ form.addEventListener('change', (e) => {
       state.expiryTouched = false;
     }
   }
-  if (t.name === 'days' || t.name === 'deliveredAt' || t.name === 'openedAt' || t.name === 'name') {
+  if (t.name === 'days' || t.name === 'deliveredAt' || t.name === 'openedAt' || t.name === 'defrostedAt' || t.name === 'name') {
     if (t.name !== 'name') state.expiryTouched = false;
     updateExpiry();
   }
@@ -407,6 +411,7 @@ form.addEventListener('submit', async (e) => {
     category: form.category.value,
     deliveredAt: fromLocalInput(form.deliveredAt.value),
     openedAt: fromLocalInput(form.openedAt.value),
+    defrostedAt: fromLocalInput(form.defrostedAt.value),
     expiresAt: fromLocalInput(form.expiresAt.value),
     notes: form.notes.value,
   };
@@ -639,13 +644,13 @@ function demoData() {
   const presets = DEFAULT_PRESETS.map(([name, category, days]) => ({ id: newId(), name, category, days }));
   const at = (dayOffset, h, m = 0) => { const d = new Date(); d.setDate(d.getDate() + dayOffset); d.setHours(h, m, 0, 0); return d.toISOString(); };
   const bin = (start, days) => computeExpiry(new Date(start), days).toISOString();
-  const item = (o) => ({ id: newId(), deliveredAt: null, openedAt: null, notes: '', photo: null, status: 'active',
+  const item = (o) => ({ id: newId(), deliveredAt: null, openedAt: null, defrostedAt: null, notes: '', photo: null, status: 'active',
     createdAt: o.openedAt || o.deliveredAt, closedAt: null, closedBy: '', ...o });
   const items = [
     item({ name: 'Lemon drizzle', category: 'cake', openedAt: at(-3, 8, 15), expiresAt: bin(at(-3, 8, 15), 3), loggedBy: 'Sam', notes: 'Cake stand, left' }),
     item({ name: 'Carrot cake', category: 'cake', openedAt: at(-2, 9, 0), expiresAt: bin(at(-2, 9, 0), 3), loggedBy: 'Jo' }),
     item({ name: 'Berries', category: 'fruit', deliveredAt: at(0, 7, 40), openedAt: at(0, 8, 5), expiresAt: bin(at(0, 7, 40), 1), loggedBy: 'Alex', notes: 'Breakfast bar' }),
-    item({ name: 'Brownies', category: 'cake', openedAt: at(0, 8, 30), expiresAt: bin(at(0, 8, 30), 4), loggedBy: 'Sam' }),
+    item({ name: 'Brownies', category: 'cake', defrostedAt: at(-1, 17, 0), openedAt: at(0, 8, 30), expiresAt: bin(at(-1, 17, 0), 4), loggedBy: 'Sam', notes: 'Out of the freezer last night' }),
     item({ name: 'Victoria sponge', category: 'cake', openedAt: at(-1, 11, 20), expiresAt: bin(at(-1, 11, 20), 3), loggedBy: 'Jo', notes: 'Top shelf of the cake stand' }),
     item({ name: 'Bananas', category: 'fruit', deliveredAt: at(-1, 7, 30), openedAt: at(-1, 8, 0), expiresAt: bin(at(-1, 7, 30), 5), loggedBy: 'Alex' }),
     item({ name: 'Apples', category: 'fruit', deliveredAt: at(0, 7, 30), expiresAt: bin(at(0, 7, 30), 7), loggedBy: 'Alex', notes: 'Still in the crate in the back' }),
@@ -672,11 +677,12 @@ function localValidate(input, existing = {}) {
     category: ['cake', 'fruit', 'other'].includes(pick('category')) ? pick('category') : 'other',
     deliveredAt: pick('deliveredAt') || null,
     openedAt: pick('openedAt') || null,
+    defrostedAt: pick('defrostedAt') || null,
     expiresAt: pick('expiresAt') || null,
     notes: String(pick('notes') || '').slice(0, 500),
     loggedBy: String(pick('loggedBy') || '').slice(0, 40),
   };
-  if (!out.deliveredAt && !out.openedAt) throw new Error('Enter when it was delivered or when it was put out / opened');
+  if (!out.deliveredAt && !out.openedAt && !out.defrostedAt) throw new Error('Enter when it was delivered, defrosted or put out / opened');
   if (!out.expiresAt) throw new Error('Throw-away date is required');
   return out;
 }
@@ -715,7 +721,7 @@ async function localApi(path, opts = {}) {
         item.closedAt = body.status === 'active' ? null : now;
         item.closedBy = body.status === 'active' ? '' : String(body.by || '');
       }
-      const editable = ['name', 'category', 'deliveredAt', 'openedAt', 'expiresAt', 'notes', 'loggedBy'];
+      const editable = ['name', 'category', 'deliveredAt', 'openedAt', 'defrostedAt', 'expiresAt', 'notes', 'loggedBy'];
       if (editable.some((k) => body[k] !== undefined)) Object.assign(item, localValidate(body, item));
       if (body.photo !== undefined) item.photo = body.photo || null;
       item.updatedAt = now;

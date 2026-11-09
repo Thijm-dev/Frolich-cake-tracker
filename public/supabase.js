@@ -56,19 +56,26 @@ const SupaBackend = (() => {
   // ---------- mapping ----------
   const toItem = (r) => ({
     id: r.id, name: r.name, category: r.category,
-    deliveredAt: r.delivered_at, openedAt: r.opened_at, expiresAt: r.expires_at,
+    deliveredAt: r.delivered_at, openedAt: r.opened_at, defrostedAt: r.defrosted_at ?? null, expiresAt: r.expires_at,
     notes: r.notes, loggedBy: r.logged_by, photo: r.photo, status: r.status,
     createdAt: r.created_at, updatedAt: r.updated_at, closedAt: r.closed_at, closedBy: r.closed_by,
   });
-  const toRow = (i) => ({
-    name: i.name, category: i.category,
-    delivered_at: i.deliveredAt, opened_at: i.openedAt, expires_at: i.expiresAt,
-    notes: i.notes, logged_by: i.loggedBy,
-  });
+  const toRow = (i, before) => {
+    const row = {
+      name: i.name, category: i.category,
+      delivered_at: i.deliveredAt, opened_at: i.openedAt, expires_at: i.expiresAt,
+      notes: i.notes, logged_by: i.loggedBy,
+    };
+    // Only send defrosted_at when it's used, so the app keeps working on a database
+    // that hasn't had the defrost update (supabase/002_defrosted.sql) yet.
+    if (i.defrostedAt || before?.defrostedAt) row.defrosted_at = i.defrostedAt || null;
+    return row;
+  };
 
   function check({ data, error }) {
     if (!error) return data;
     if (error.code === 'PGRST301' || /JWT|not authenticated/i.test(error.message)) throw new Error('LOGIN_NEEDED');
+    if (/defrosted_at/.test(error.message)) throw new Error('The database needs the defrost update first – ask the manager to run supabase/002_defrosted.sql in Supabase.');
     throw new Error(error.message);
   }
 
@@ -137,8 +144,8 @@ const SupaBackend = (() => {
           update.closed_at = body.status === 'active' ? null : now;
           update.closed_by = body.status === 'active' ? '' : String(body.by || '').slice(0, 40);
         }
-        const editable = ['name', 'category', 'deliveredAt', 'openedAt', 'expiresAt', 'notes', 'loggedBy'];
-        if (editable.some((k) => body[k] !== undefined)) Object.assign(update, toRow(localValidate(body, item)));
+        const editable = ['name', 'category', 'deliveredAt', 'openedAt', 'defrostedAt', 'expiresAt', 'notes', 'loggedBy'];
+        if (editable.some((k) => body[k] !== undefined)) Object.assign(update, toRow(localValidate(body, item), item));
         if (body.photo !== undefined) {
           update.photo = body.photo ? await uploadPhoto(body.photo) : null;
           await removePhoto(item.photo);

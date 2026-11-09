@@ -115,12 +115,15 @@
         <label class="field" id="deliveredField">Delivered
           <div class="dt"><input type="datetime-local" name="deliveredAt" /><button type="button" class="mini" data-now="deliveredAt">Now</button></div>
         </label>
+        <label class="field"><span>Defrosted <small class="hint" style="font-weight:400">(if it was frozen)</small></span>
+          <div class="dt"><input type="datetime-local" name="defrostedAt" /><button type="button" class="mini" data-now="defrostedAt">Now</button></div>
+        </label>
         <label class="field">Put out / opened
           <div class="dt"><input type="datetime-local" name="openedAt" /><button type="button" class="mini" data-now="openedAt">Now</button></div>
         </label>
       </div>
 
-      <label class="field">Shelf life (days, day 1 = the day it starts)
+      <label class="field">Shelf life (days, day 1 = the day it starts – or was defrosted)
         <input type="number" name="days" min="1" max="60" value="3" />
       </label>
 

@@ -80,6 +80,17 @@ test('fruit can be logged as delivered and put out later', async () => {
   assert.ok(out.openedAt);
 });
 
+test('logs a frozen cake by its defrost time', async () => {
+  const defrosted = new Date(Date.now() - 3600000).toISOString();
+  const res = await req('POST', '/api/items', { name: 'Brownies', category: 'cake', defrostedAt: defrosted, expiresAt: new Date(Date.now() + 86400000).toISOString() });
+  assert.equal(res.status, 201);
+  const item = await res.json();
+  assert.equal(item.defrostedAt, defrosted);
+  const cleared = await (await req('PATCH', `/api/items/${item.id}`, { defrostedAt: null, openedAt: new Date().toISOString() })).json();
+  assert.equal(cleared.defrostedAt, null);
+  assert.equal((await req('PATCH', `/api/items/${item.id}`, { openedAt: null })).status, 400);
+});
+
 test('validates input', async () => {
   assert.equal((await req('POST', '/api/items', { name: '', expiresAt: new Date().toISOString(), openedAt: new Date().toISOString() })).status, 400);
   assert.equal((await req('POST', '/api/items', { name: 'Cake', expiresAt: new Date().toISOString() })).status, 400);

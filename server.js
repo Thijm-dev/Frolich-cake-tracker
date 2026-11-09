@@ -95,7 +95,8 @@ function createApp(options = {}) {
 
     out.deliveredAt = isoOrNull(input.deliveredAt !== undefined ? input.deliveredAt : existing?.deliveredAt, 'Delivered time');
     out.openedAt = isoOrNull(input.openedAt !== undefined ? input.openedAt : existing?.openedAt, 'Put out / opened time');
-    if (!out.deliveredAt && !out.openedAt) throw httpError(400, 'Enter when it was delivered or when it was put out / opened');
+    out.defrostedAt = isoOrNull(input.defrostedAt !== undefined ? input.defrostedAt : existing?.defrostedAt, 'Defrosted time');
+    if (!out.deliveredAt && !out.openedAt && !out.defrostedAt) throw httpError(400, 'Enter when it was delivered, defrosted or put out / opened');
 
     out.expiresAt = isoOrNull(input.expiresAt ?? existing?.expiresAt, 'Throw-away time');
     if (!out.expiresAt) throw httpError(400, 'Throw-away date is required');
@@ -157,7 +158,7 @@ function createApp(options = {}) {
           item.closedAt = body.status === 'active' ? null : new Date().toISOString();
           item.closedBy = body.status === 'active' ? '' : str(body.by, 40);
         }
-        const editable = ['name', 'category', 'deliveredAt', 'openedAt', 'expiresAt', 'notes', 'loggedBy'];
+        const editable = ['name', 'category', 'deliveredAt', 'openedAt', 'defrostedAt', 'expiresAt', 'notes', 'loggedBy'];
         if (editable.some((k) => body[k] !== undefined)) Object.assign(item, validateItem(body, item));
         if (body.photo !== undefined) {
           await deletePhoto(item.photo);

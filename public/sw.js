@@ -1,6 +1,6 @@
 // Minimal service worker: makes the app installable and loads the shell
 // if the Wi-Fi blips. Always tries the network first so nothing is stale.
-const CACHE = 'cake-tracker-v5';
+const CACHE = 'cake-tracker-v6';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'config.js', 'supabase.js', 'manifest.webmanifest', 'icons/icon.svg'];
 const SHELL_URLS = SHELL.map((p) => new URL(p, self.registration.scope).href);
 

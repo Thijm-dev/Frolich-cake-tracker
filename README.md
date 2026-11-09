@@ -15,6 +15,7 @@ Pre-packaged stock (sandwiches, beer, etc.) already has dates printed on it, so 
 - **Log it in a few seconds.** Tap **＋ Log**, pick the item (e.g. *Carrot cake*, *Bananas*) and the throw-away date fills in automatically from its shelf life. You can add a **photo** from the phone camera.
   - **Fruit:** logs the **delivery** time. Tap **Put out now** later when it goes on the counter.
   - **Cakes:** logs when it was **opened / put out**.
+  - **Frozen items:** add when it was **defrosted**. The shelf life then counts from the defrost time.
 - **"Out now" board.** Everything currently out, colour-coded:
   - 🚨 **Bin now**: past its time
   - ⏰ **Last day**: bin at close today
@@ -57,6 +58,8 @@ The app lives at **https://thijm-dev.github.io/Frolich-cake-tracker/** and is re
    - the **publishable** key (starts `sb_publishable_…`), or on older projects the **anon public** key
 
    Put them in [`public/config.js`](public/config.js) together with the staff email, then push. GitHub Pages updates in about a minute.
+
+**Already set up before the defrost date was added?** Run [`supabase/002_defrosted.sql`](supabase/002_defrosted.sql) once in the SQL Editor. Until then everything else keeps working, but saving a defrost time shows a reminder to run it.
 
 **Never** put the **secret / service_role key** or the **database password** in the app. The publishable key is designed to be public: the database rules from step 4 only let the staff login see or change anything.
 
